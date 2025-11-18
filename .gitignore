@@ -74,3 +74,10 @@ coverage.xml
 # ========================
 supabase/.env
 supabase/.config
+
+
+# Node modules
+frontend/node_modules/
+
+# Build files
+frontend/build/
