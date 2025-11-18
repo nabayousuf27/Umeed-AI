@@ -1,0 +1,76 @@
+# ========================
+# Python
+# ========================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+
+# ========================
+# Virtual Environment
+# ========================
+venv/
+env/
+ENV/
+
+# ========================
+# Environment / Secrets
+# ========================
+.env
+.env.*   # any environment files
+*.key
+*.pem
+*.crt
+
+# ========================
+# IDEs / Editors
+# ========================
+.vscode/
+.idea/
+
+# ========================
+# OS generated files
+# ========================
+.DS_Store
+Thumbs.db
+
+# ========================
+# Logs
+# ========================
+*.log
+*.tmp
+*.bak
+*.swp
+
+# ========================
+# Database / Local files
+# ========================
+*.sqlite3
+*.db
+instance/
+
+# ========================
+# Python packaging / build
+# ========================
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# ========================
+# Coverage / Test Reports
+# ========================
+htmlcov/
+.coverage
+.tox/
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# ========================
+# Supabase / Deployment
+# ========================
+supabase/.env
+supabase/.config
