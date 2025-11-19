@@ -14,58 +14,112 @@ import {
 import { Progress } from "../components/ui/progress";
 import { Badge } from "../components/ui/badge";
 import { LoadingSpinner } from "../components/ui/loading-spinner";
+import { useAuth } from "../context/AuthContext";
+import { getLoanDetail } from "../services/api";
 
 export default function RiskResultPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { borrowerId, isLoggedIn } = useAuth();
   const [showConfetti, setShowConfetti] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [result, setResult] = useState(null);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    const token = localStorage.getItem("umeed_token");
-    const borrower_id = localStorage.getItem("umeed_borrower_id");
-
-    if (!token) {
+    if (!isLoggedIn || !borrowerId) {
       toast.info("Please sign in first");
       navigate("/borrower-auth");
       return;
     }
 
-    // TODO: Replace with GET /loan/{id}/result
-    setTimeout(() => {
-      const mockResult = {
-        borrower_id,
-        ai_score: 75,
-        manual_score: 165,
-        final_score: 240,
-        risk_category: "Low",
-        decision: "Approved",
-        explanation:
-          "Based on your stable income, low existing debt, and responsible financial profile, you qualify for this loan with favorable terms.",
-        details: {
-          loan_to_income: { score: 50, ratio: "40%" },
-          existing_debt: { score: 45, amount: "PKR 5,000" },
-          age_score: { score: 40, age: 32 },
-          loyalty_score: { score: 30, status: "New Customer" },
-        },
-      };
+    if (!id) {
+      toast.error("Invalid loan ID");
+      navigate("/my-loans");
+      return;
+    }
 
-      if (mockResult.borrower_id !== borrower_id) {
-        toast.error("Access denied");
-        navigate("/loan-apply");
-        return;
+    const fetchLoan = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        
+        const response = await getLoanDetail(parseInt(id, 10));
+        const loanData = response.data;
+
+        if (!loanData) {
+          throw new Error("Loan not found");
+        }
+
+        // Verify borrower owns this loan
+        if (loanData.borrower_id !== parseInt(borrowerId, 10)) {
+          throw new Error("Access denied");
+        }
+
+        // Calculate loan-to-income ratio
+        const monthlyIncome = loanData.monthly_income || 0;
+        const loanAmount = loanData.loan_amount || 0;
+        const loanToIncomeRatio = monthlyIncome > 0 ? (loanAmount / monthlyIncome) * 100 : 0;
+
+        // Map API data to result format
+        const mappedResult = {
+          borrower_id: loanData.borrower_id,
+          ai_score: loanData.ai_score || 0,
+          manual_score: loanData.manual_score || null,
+          final_score: loanData.final_score || loanData.ai_score || 0,
+          risk_category: loanData.risk_category || "Medium",
+          decision: loanData.status === "pending" ? "Review" :
+                   loanData.status === "active" ? "Approved" :
+                   loanData.status === "completed" ? "Approved" :
+                   loanData.status === "rejected" ? "Rejected" : "Review",
+          explanation: loanData.status === "pending" 
+            ? "Your application is under review. Our team will assess your profile and make a decision soon."
+            : loanData.status === "active" || loanData.status === "completed"
+            ? "Based on your financial profile and risk assessment, your loan application has been approved."
+            : loanData.status === "rejected"
+            ? loanData.rejection_reason || "Your loan application was not approved at this time."
+            : "Your application is being processed.",
+          details: {
+            loan_to_income: { 
+              score: Math.min(50, Math.round(loanToIncomeRatio / 2)), 
+              ratio: `${loanToIncomeRatio.toFixed(1)}%` 
+            },
+            existing_debt: { 
+              score: Math.min(45, Math.max(0, 45 - (loanData.existing_loans || 0) / 1000)), 
+              amount: `PKR ${(loanData.existing_loans || 0).toLocaleString()}` 
+            },
+            age_score: { 
+              score: Math.min(40, (loanData.borrower?.age || 0) * 1.2), 
+              age: loanData.borrower?.age || 0 
+            },
+            loyalty_score: { 
+              score: 30, 
+              status: "New Customer" // Can be enhanced with loan history
+            },
+          },
+        };
+
+        setResult(mappedResult);
+
+        if (mappedResult.decision === "Approved") {
+          setShowConfetti(true);
+          setTimeout(() => setShowConfetti(false), 3000);
+        }
+      } catch (error) {
+        console.error("Error fetching loan:", error);
+        setError(error.response?.data?.detail || error.message || "Failed to load results");
+        toast.error(error.response?.data?.detail || "Failed to load results");
+        
+        if (error.response?.status === 404 || error.message === "Access denied") {
+          setTimeout(() => navigate("/my-loans"), 2000);
+        }
+      } finally {
+        setIsLoading(false);
       }
+    };
 
-      setResult(mockResult);
-      setIsLoading(false);
-
-      if (mockResult.decision === "Approved") {
-        setShowConfetti(true);
-        setTimeout(() => setShowConfetti(false), 3000);
-      }
-    }, 800);
-  }, [id, navigate]);
+    fetchLoan();
+  }, [id, navigate, isLoggedIn, borrowerId]);
 
   if (isLoading) {
     return (
@@ -74,6 +128,42 @@ export default function RiskResultPage() {
         <div className="container mx-auto px-4 py-16 text-center">
           <LoadingSpinner />
           <p className="mt-4 text-muted-foreground">Loading your results...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error && !isLoading) {
+    return (
+      <div className="min-h-screen bg-muted">
+        <Header />
+        <div className="container mx-auto px-4 py-16 text-center">
+          <div className="mx-auto max-w-md">
+            <h2 className="mb-4 text-2xl font-bold text-destructive">Error</h2>
+            <p className="mb-6 text-muted-foreground">{error}</p>
+            <Button onClick={() => navigate("/my-loans")}>
+              Back to My Loans
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!result && !isLoading) {
+    return (
+      <div className="min-h-screen bg-muted">
+        <Header />
+        <div className="container mx-auto px-4 py-16 text-center">
+          <div className="mx-auto max-w-md">
+            <h2 className="mb-4 text-2xl font-bold">Result Not Found</h2>
+            <p className="mb-6 text-muted-foreground">
+              Unable to load application results.
+            </p>
+            <Button onClick={() => navigate("/my-loans")}>
+              Back to My Loans
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -138,11 +228,11 @@ export default function RiskResultPage() {
                   {result.decision}
                 </Badge>
                 <CardTitle className="text-4xl font-bold">
-                  {result.final_score}{" "}
-                  <span className="text-2xl text-muted-foreground">/ 300</span>
+                  {result.final_score ? Math.round(result.final_score) : "N/A"}{" "}
+                  <span className="text-2xl text-muted-foreground">/ 100</span>
                 </CardTitle>
                 <CardDescription className="text-base">
-                  Final Risk Score
+                  Final Risk Score (Lower is Better)
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -153,10 +243,11 @@ export default function RiskResultPage() {
                       {result.risk_category}
                     </span>
                   </div>
-                  <Progress value={(result.final_score / 300) * 100} className="h-3" />
+                  <Progress value={result.final_score || 0} className="h-3" />
                   <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>High Risk</span>
-                    <span>Low Risk</span>
+                    <span>Low Risk (0-20)</span>
+                    <span>Medium (50-80)</span>
+                    <span>High Risk (80-100)</span>
                   </div>
                 </div>
 
@@ -193,14 +284,16 @@ export default function RiskResultPage() {
               <CardContent className="space-y-4">
                 <ScoreBlock
                   title="AI Risk Score"
-                  value={result.ai_score}
+                  value={result.ai_score || 0}
                   max={100}
                 />
-                <ScoreBlock
-                  title="Manual Score"
-                  value={result.manual_score}
-                  max={200}
-                />
+                {result.manual_score !== null && (
+                  <ScoreBlock
+                    title="Manual Score"
+                    value={result.manual_score}
+                    max={100}
+                  />
+                )}
 
                 <div className="space-y-3 border-t pt-4">
                   <DetailRow

@@ -13,9 +13,13 @@ class LoanService:
     def create_loan_application(loan_data: dict) -> dict:
         """Create a new loan application"""
         try:
-            # Insert loan application
-            loan_data["status"] = LoanStatus.PENDING.value
-            loan_data["created_at"] = datetime.utcnow().isoformat()
+            # Set created_at if not already set
+            if "created_at" not in loan_data:
+                loan_data["created_at"] = datetime.utcnow().isoformat()
+            
+            # Only set status to PENDING if not already set (allows auto-approval/rejection)
+            if "status" not in loan_data:
+                loan_data["status"] = LoanStatus.PENDING.value
             
             response = supabase.table("loans").insert(loan_data).execute()
             
@@ -64,7 +68,7 @@ class LoanService:
         limit: int = 100,
         offset: int = 0
     ) -> List[dict]:
-        """Get all loans with optional filters"""
+        """Get all loans with optional filters, including borrower data"""
         try:
             query = supabase.table("loans").select("*")
             
@@ -80,7 +84,25 @@ class LoanService:
                 .execute()
             )
             
-            return response.data or []
+            loans = response.data or []
+            
+            # Fetch borrower data for each loan
+            for loan in loans:
+                borrower_id = loan.get("borrower_id")
+                if borrower_id:
+                    try:
+                        borrower_response = (
+                            supabase.table("borrowers")
+                            .select("id, full_name, email, phone, cnic, age")
+                            .eq("id", borrower_id)
+                            .execute()
+                        )
+                        if borrower_response.data:
+                            loan["borrower"] = borrower_response.data[0]
+                    except:
+                        pass  # If borrower fetch fails, continue without borrower data
+            
+            return loans
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error fetching loans: {str(e)}")
     
@@ -107,9 +129,16 @@ class LoanService:
             
             if manual_score is not None:
                 update_data["manual_score"] = manual_score
-                # Recalculate final score if both scores exist
-                if loan.get("ai_score"):
-                    update_data["final_score"] = loan.get("ai_score") + manual_score
+                # Recalculate final score: weighted average (70% AI, 30% manual)
+                # Both scores are on 0-100 scale
+                if loan.get("ai_score") is not None:
+                    ai_score = loan.get("ai_score")
+                    # Weighted average: 70% AI score, 30% manual score
+                    final_score = (ai_score * 0.7) + (manual_score * 0.3)
+                    update_data["final_score"] = round(final_score, 2)
+                else:
+                    # If no AI score, use manual score as final
+                    update_data["final_score"] = manual_score
             
             response = (
                 supabase.table("loans")

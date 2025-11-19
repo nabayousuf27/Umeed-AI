@@ -15,55 +15,61 @@ import { Card, CardContent, CardDescription, CardHeader } from "../ui/card";
  * Displays key performance indicators in a responsive grid
  */
 export const SummaryCards = ({ summary, analytics }) => {
+  // Get values from analytics overview if available, otherwise from summary
+  const totalClients = analytics?.overview?.total_clients || 0;
+  const totalLoans = analytics?.overview?.total_loans || summary?.total_applications || 0;
+  const activeLoans = analytics?.overview?.active_loans || 0;
+  const completedLoans = summary?.approved || 0;
+  
   const cards = [
     {
       icon: <Users className="h-4 w-4" />,
       label: "Total Applications",
-      value: summary.total_applications,
+      value: summary?.total_applications || 0,
     },
     {
       icon: <CheckCircle2 className="h-4 w-4 text-success" />,
       label: "Approved",
-      value: summary.approved,
+      value: summary?.approved || 0,
       valueClass: "text-success",
     },
     {
       icon: <XCircle className="h-4 w-4 text-destructive" />,
       label: "Rejected",
-      value: summary.rejected,
+      value: summary?.rejected || 0,
       valueClass: "text-destructive",
     },
     {
       icon: <Clock className="h-4 w-4 text-warning" />,
       label: "Pending Review",
-      value: summary.pending,
+      value: summary?.pending || 0,
       valueClass: "text-warning",
     },
     {
       icon: <TrendingUp className="h-4 w-4" />,
       label: "Avg Risk Score",
-      value: summary.avg_risk_score,
+      value: summary?.avg_risk_score ? Math.round(summary.avg_risk_score) : 0,
     },
     {
       icon: <Users className="h-4 w-4 text-primary" />,
       label: "Total Clients",
-      value: analytics?.clients?.total_clients || 0,
+      value: totalClients,
     },
     {
       icon: <FileText className="h-4 w-4 text-blue-600" />,
       label: "Total Loans",
-      value: analytics?.loans?.total_loans || 0,
+      value: totalLoans,
     },
     {
       icon: <Activity className="h-4 w-4 text-green-600" />,
       label: "Active Loans",
-      value: analytics?.loans?.active_loans || 0,
+      value: activeLoans,
       valueClass: "text-green-600",
     },
     {
       icon: <CheckCircle2 className="h-4 w-4 text-emerald-600" />,
       label: "Completed Loans",
-      value: analytics?.loans?.completed_loans || 0,
+      value: completedLoans,
       valueClass: "text-emerald-600",
     },
   ];

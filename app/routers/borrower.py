@@ -90,7 +90,7 @@ def apply_for_loan(
     loan_application: LoanApplicationCreate,
     current_user: dict = Depends(get_current_borrower)
 ):
-    """Apply for a new loan"""
+    """Apply for a new loan with automatic approval/rejection based on risk"""
     try:
         # Verify borrower owns this application
         if loan_application.borrower_id != int(current_user["user_id"]):
@@ -99,13 +99,37 @@ def apply_for_loan(
                 detail="You can only apply for loans on your own behalf"
             )
         
-        # Calculate AI risk score
+        # Calculate AI risk score (0-100 scale)
         loan_data = loan_application.dict()
         ai_score = calculate_risk_score(loan_data)
         
         # Determine risk category
+        risk_category = get_risk_category(ai_score)
         loan_data["ai_score"] = ai_score
-        loan_data["risk_category"] = get_risk_category(ai_score)
+        loan_data["risk_category"] = risk_category
+        
+        # Automatic approval/rejection based on risk category
+        from app.schemas.schemas import LoanStatus
+        from datetime import datetime
+        
+        if risk_category == "Low":
+            # Low risk (0-50): Auto-approve
+            loan_data["status"] = LoanStatus.ACTIVE.value
+            loan_data["approved_at"] = datetime.utcnow().isoformat()
+            loan_data["admin_notes"] = "Auto-approved: Low risk profile"
+        elif risk_category == "High":
+            # High risk (80-100): Auto-reject
+            loan_data["status"] = LoanStatus.REJECTED.value
+            loan_data["rejected_at"] = datetime.utcnow().isoformat()
+            loan_data["rejection_reason"] = "Auto-rejected: High risk profile based on AI assessment"
+            loan_data["admin_notes"] = "Auto-rejected due to high risk score"
+        else:
+            # Medium risk (50-80): Keep as pending for admin review
+            loan_data["status"] = LoanStatus.PENDING.value
+            loan_data["admin_notes"] = "Pending admin review: Medium risk profile"
+        
+        # Set final score (same as AI score initially, can be adjusted by admin)
+        loan_data["final_score"] = ai_score
         
         # Create loan application
         new_loan = LoanService.create_loan_application(loan_data)
