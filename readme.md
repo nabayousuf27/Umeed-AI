@@ -1,11 +1,10 @@
 <br>
 <div align="center">
     <div>
-        <img src="https://i.postimg.cc/XYZ/umeed-ai-banner.png" alt="Umeed AI Banner"/>
-    </div>
-    <div>
-         <h3><i>AI-Powered Loan Assistance for Everyone</i></h3>
-    </div>      
+    <img src="https://github.com/user-attachments/assets/5fe64f42-504a-48cd-ba3c-d9e615dbf8aa" alt="Umeed AI Banner" />
+</div>
+<h3><i>AI-Powered Loan Assistance for Everyone</i></h3>
+     
 </div>
 
 Umeed AI is a smart web platform that provides instant *loan risk scoring* and *personalized installment plans*, making borrowing and lending safer, faster, and more transparent. The platform empowers both loan seekers and officers with AI-driven insights to reduce defaults and streamline approvals.
@@ -75,3 +74,4 @@ Before running locally, ensure you have:
 
 ```bash
 git clone https://github.com/<your-username>/Umeed-AI.git
+
