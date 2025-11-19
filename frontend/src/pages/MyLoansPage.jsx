@@ -31,60 +31,7 @@ import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
 import { LoadingSpinner } from "../components/ui/loading-spinner";
 import { useAuth } from "../context/AuthContext";
-
-// Mock data - replace with API call later
-const mockLoans = [
-  {
-    id: "LOAN-001",
-    amount: 20000,
-    status: "Active",
-    dateIssued: "2024-01-10",
-    installmentMonths: 2,
-    riskScore: 240,
-    totalPayable: 20840,
-    paidAmount: 10420,
-  },
-  {
-    id: "LOAN-002",
-    amount: 15000,
-    status: "Completed",
-    dateIssued: "2023-11-15",
-    installmentMonths: 1,
-    riskScore: 235,
-    totalPayable: 15105,
-    paidAmount: 15105,
-  },
-  {
-    id: "LOAN-003",
-    amount: 25000,
-    status: "Rejected",
-    dateIssued: "2023-10-20",
-    installmentMonths: 0,
-    riskScore: 120,
-    totalPayable: 0,
-    paidAmount: 0,
-  },
-  {
-    id: "LOAN-004",
-    amount: 18000,
-    status: "Active",
-    dateIssued: "2024-02-05",
-    installmentMonths: 1,
-    riskScore: 220,
-    totalPayable: 18126,
-    paidAmount: 9063,
-  },
-  {
-    id: "LOAN-005",
-    amount: 12000,
-    status: "Completed",
-    dateIssued: "2023-09-10",
-    installmentMonths: 1,
-    riskScore: 245,
-    totalPayable: 12084,
-    paidAmount: 12084,
-  },
-];
+import { getBorrowerLoans } from "../services/api";
 
 export default function MyLoansPage() {
   const navigate = useNavigate();
@@ -99,13 +46,26 @@ export default function MyLoansPage() {
       return;
     }
 
-    // TODO: Replace with GET /borrower/loans
     const fetchLoans = async () => {
       try {
         setLoading(true);
-        // Simulate API call
-        await new Promise((resolve) => setTimeout(resolve, 800));
-        setLoans(mockLoans);
+        const response = await getBorrowerLoans();
+        
+        // Transform API response to match frontend format
+        const transformedLoans = (response.data || []).map((loan) => ({
+          id: loan.id,
+          amount: loan.loan_amount,
+          status: loan.status === "pending" ? "Pending" : 
+                  loan.status === "active" ? "Active" :
+                  loan.status === "completed" ? "Completed" : "Rejected",
+          dateIssued: loan.created_at,
+          installmentMonths: Math.ceil(loan.loan_duration_days / 30),
+          riskScore: loan.ai_score || loan.final_score,
+          totalPayable: loan.loan_amount * 1.042, // Approximate with interest
+          paidAmount: 0, // Will be calculated from repayments later
+        }));
+        
+        setLoans(transformedLoans);
       } catch (error) {
         console.error("Error fetching loans:", error);
         toast.error("Failed to load loans");

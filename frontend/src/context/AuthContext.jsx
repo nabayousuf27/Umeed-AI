@@ -11,7 +11,7 @@ const AuthContext = createContext({
 });
 
 const getInitialState = () => {
-  const token = localStorage.getItem("umeed_token");
+  const token = localStorage.getItem("token") || localStorage.getItem("umeed_token");
   const role = localStorage.getItem("umeed_role");
   const borrowerId = localStorage.getItem("umeed_borrower_id");
 
@@ -27,19 +27,22 @@ export const AuthProvider = ({ children }) => {
   const [authState, setAuthState] = useState(getInitialState);
 
   const loginBorrower = ({ token, borrowerId }) => {
-    localStorage.setItem("umeed_token", token);
+    localStorage.setItem("token", token);
+    localStorage.setItem("umeed_token", token); // Keep for backward compatibility
     localStorage.setItem("umeed_role", "borrower");
     localStorage.setItem("umeed_borrower_id", borrowerId);
     setAuthState({
       isLoggedIn: true,
       token,
       role: "borrower",
-      borrowerId,
+      borrowerId: borrowerId?.toString(),
     });
   };
 
   const loginAdmin = ({ token }) => {
-    localStorage.setItem("umeed_token", token);
+    localStorage.setItem("token", token);
+    localStorage.setItem("admin_token", token);
+    localStorage.setItem("umeed_token", token); // Keep for backward compatibility
     localStorage.setItem("umeed_role", "admin");
     localStorage.removeItem("umeed_borrower_id");
     setAuthState({
@@ -51,6 +54,8 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("admin_token");
     localStorage.removeItem("umeed_token");
     localStorage.removeItem("umeed_role");
     localStorage.removeItem("umeed_borrower_id");
@@ -76,4 +81,5 @@ export const AuthProvider = ({ children }) => {
 };
 
 export const useAuth = () => useContext(AuthContext);
+
 

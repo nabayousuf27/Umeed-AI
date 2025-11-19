@@ -16,6 +16,7 @@ import {
 import { Switch } from "../components/ui/switch";
 import { LoadingSpinner } from "../components/ui/loading-spinner";
 import { useAuth } from "../context/AuthContext";
+import { loginAdmin as loginAdminAPI } from "../services/api";
 
 export default function AdminAuthPage() {
   const navigate = useNavigate();
@@ -27,23 +28,27 @@ export default function AdminAuthPage() {
     e.preventDefault();
     setIsLoading(true);
 
-    const payload = Object.fromEntries(new FormData(e.currentTarget).entries());
-    // TODO: Replace with POST /auth/admin/login using `payload`
-    setTimeout(() => {
-      const mockResponse = {
-        admin_token: `admin_token_${Date.now()}`,
-      };
+    try {
+      const payload = Object.fromEntries(new FormData(e.currentTarget).entries());
+      
+      const response = await loginAdminAPI(payload);
 
-      loginAdmin({ token: mockResponse.admin_token });
+      loginAdmin({ token: response.data.token });
 
       toast.success(
         demoMode
           ? `Demo mode enabled for ${payload.email || "admin"}`
           : `Logged in as ${payload.email || "admin"}`
       );
-      setIsLoading(false);
       navigate("/admin-dashboard");
-    }, 1500);
+    } catch (error) {
+      console.error("Admin login error:", error);
+      toast.error(
+        error.response?.data?.detail || "Invalid admin credentials. Please try again."
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

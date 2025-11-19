@@ -23,6 +23,7 @@ import {
 } from "../components/ui/card";
 import { LoadingSpinner } from "../components/ui/loading-spinner";
 import { useAuth } from "../context/AuthContext";
+import { getBorrowerProfile, applyForLoan } from "../services/api";
 
 export default function LoanApplicationPage() {
   const navigate = useNavigate();
@@ -41,7 +42,7 @@ export default function LoanApplicationPage() {
   });
 
   useEffect(() => {
-    const token = localStorage.getItem("umeed_token");
+    const token = localStorage.getItem("token");
 
     if (!token) {
       toast.info("Please sign in or sign up to apply for a loan");
@@ -49,19 +50,20 @@ export default function LoanApplicationPage() {
       return;
     }
 
-    // TODO: Replace with GET /borrower/me
-    setTimeout(() => {
-      const mockProfile = {
-        full_name: "Aisha Khan",
-        email: "aisha@example.com",
-        phone: "+92 300 1234567",
-        cnic: "42101-1234567-1",
-        age: 32,
-      };
+    const fetchProfile = async () => {
+      try {
+        const response = await getBorrowerProfile();
+        setUser(response.data);
+      } catch (error) {
+        console.error("Error fetching profile:", error);
+        toast.error("Failed to load profile. Please try again.");
+        navigate("/borrower-auth");
+      } finally {
+        setIsFetching(false);
+      }
+    };
 
-      setUser(mockProfile);
-      setIsFetching(false);
-    }, 500);
+    fetchProfile();
   }, [navigate]);
 
   const handleSubmit = async (e) => {
@@ -75,27 +77,35 @@ export default function LoanApplicationPage() {
       return;
     }
 
-    const formEntries = Object.fromEntries(new FormData(e.currentTarget).entries());
-    const applicationPayload = {
-      ...formEntries,
-      borrower_id: borrowerId,
-      breadwinner,
-      marital_status: maritalStatus,
-      loan_duration_days: loanDuration,
-    };
-
-    // TODO: Replace with POST /loan/apply using `applicationPayload`
-    setTimeout(() => {
-      const mockResponse = {
-        application_id: `APP-${Math.floor(Math.random() * 1000)}`,
+    try {
+      const formEntries = Object.fromEntries(new FormData(e.currentTarget).entries());
+      const applicationPayload = {
+        borrower_id: parseInt(borrowerId, 10),
+        loan_amount: parseFloat(formEntries.loan_amount),
+        loan_duration_days: parseInt(loanDuration, 10),
+        monthly_income: parseFloat(formEntries.monthly_income),
+        existing_loans: parseFloat(formEntries.existing_loans || 0),
+        breadwinner,
+        household_size: parseInt(formEntries.household_size, 10),
+        dependents: parseInt(formEntries.dependents, 10),
+        marital_status: maritalStatus,
+        reason: formEntries.reason,
       };
 
+      const response = await applyForLoan(applicationPayload);
+
       toast.success(
-        `Application for PKR ${Number(applicationPayload.loan_amount || 0).toLocaleString()} submitted successfully`
+        `Application for PKR ${Number(applicationPayload.loan_amount).toLocaleString()} submitted successfully`
       );
+      navigate(`/loan/${response.data.id}`);
+    } catch (error) {
+      console.error("Loan application error:", error);
+      toast.error(
+        error.response?.data?.detail || "Failed to submit application. Please try again."
+      );
+    } finally {
       setIsLoading(false);
-      navigate(`/risk-result/${mockResponse.application_id}`);
-    }, 2000);
+    }
   };
 
   if (isFetching) {

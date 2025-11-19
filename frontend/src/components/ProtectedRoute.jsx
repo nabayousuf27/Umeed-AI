@@ -20,3 +20,4 @@ const ProtectedRoute = ({ role }) => {
 
 export default ProtectedRoute;
 
+

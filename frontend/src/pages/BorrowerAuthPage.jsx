@@ -15,6 +15,7 @@ import {
 } from "../components/ui/card";
 import { LoadingSpinner } from "../components/ui/loading-spinner";
 import { useAuth } from "../context/AuthContext";
+import { signupBorrower, loginBorrower as loginBorrowerAPI } from "../services/api";
 
 export default function BorrowerAuthPage() {
   const navigate = useNavigate();
@@ -25,50 +26,65 @@ export default function BorrowerAuthPage() {
     e.preventDefault();
     setIsLoading(true);
 
-    const payload = Object.fromEntries(new FormData(e.currentTarget).entries());
-    // TODO: Replace with POST /borrowers/signup using `payload`
-    setTimeout(() => {
-      const mockResponse = {
-        token: `mock_token_${Date.now()}`,
-        borrower_id: `borrower_${Date.now()}`,
-      };
+    try {
+      const payload = Object.fromEntries(new FormData(e.currentTarget).entries());
+      
+      // Convert age to number
+      payload.age = parseInt(payload.age, 10);
+      
+      const response = await signupBorrower(payload);
+      
+      // After signup, automatically log in
+      const loginResponse = await loginBorrowerAPI({
+        email: payload.email,
+        password: payload.password,
+      });
 
       loginBorrower({
-        token: mockResponse.token,
-        borrowerId: mockResponse.borrower_id,
+        token: loginResponse.data.token,
+        borrowerId: loginResponse.data.borrower_id || response.data.id,
       });
 
       toast.success(
-        `Welcome back${payload.full_name ? `, ${payload.full_name}` : ""} — continue your application`
+        `Welcome${payload.full_name ? `, ${payload.full_name}` : ""} — continue your application`
       );
-      setIsLoading(false);
       navigate("/loan-apply");
-    }, 1500);
+    } catch (error) {
+      console.error("Signup error:", error);
+      toast.error(
+        error.response?.data?.detail || "Failed to create account. Please try again."
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setIsLoading(true);
 
-    const payload = Object.fromEntries(new FormData(e.currentTarget).entries());
-    // TODO: Replace with POST /borrowers/login using `payload`
-    setTimeout(() => {
-      const mockResponse = {
-        token: `mock_token_${Date.now()}`,
-        borrower_id: `borrower_${Date.now()}`,
-      };
+    try {
+      const payload = Object.fromEntries(new FormData(e.currentTarget).entries());
+      
+      const response = await loginBorrowerAPI(payload);
 
       loginBorrower({
-        token: mockResponse.token,
-        borrowerId: mockResponse.borrower_id,
+        token: response.data.token,
+        borrowerId: response.data.borrower_id || response.data.borrower?.id,
       });
 
       toast.success(
         `Welcome back${payload.email ? `, ${payload.email.split("@")[0]}` : ""} — continue your application`
       );
-      setIsLoading(false);
       navigate("/loan-apply");
-    }, 1500);
+    } catch (error) {
+      console.error("Login error:", error);
+      toast.error(
+        error.response?.data?.detail || "Invalid email or password. Please try again."
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
