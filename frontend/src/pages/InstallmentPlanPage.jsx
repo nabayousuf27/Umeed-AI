@@ -22,61 +22,107 @@ import {
 } from "../components/ui/table";
 import { Badge } from "../components/ui/badge";
 import { Progress } from "../components/ui/progress";
+import { useAuth } from "../context/AuthContext";
+import { getLoanDetail } from "../services/api";
 
 export default function InstallmentPlanPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { borrowerId, isLoggedIn } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [loan, setLoan] = useState(null);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    const token = localStorage.getItem("umeed_token");
-    const borrower_id = localStorage.getItem("umeed_borrower_id");
-
-    if (!token) {
+    if (!isLoggedIn || !borrowerId) {
       toast.info("Please sign in first");
       navigate("/borrower-auth");
       return;
     }
 
-    // TODO: Replace with GET /loan/{id}/installments
-    setTimeout(() => {
-      const mockLoan = {
-        borrower_id,
-        principal: 20000,
-        daily_rate: 0.7,
-        duration: 60,
-        total_payable: 20840,
-        installments: [
-          {
-            no: 1,
-            due_date: "2024-01-15",
-            amount: 10420,
-            principal: 10000,
-            interest: 420,
-            status: "Paid",
-          },
-          {
-            no: 2,
-            due_date: "2024-02-15",
-            amount: 10420,
-            principal: 10000,
-            interest: 420,
-            status: "Upcoming",
-          },
-        ],
-      };
+    if (!id) {
+      toast.error("Invalid loan ID");
+      navigate("/my-loans");
+      return;
+    }
 
-      if (mockLoan.borrower_id !== borrower_id) {
-        toast.error("Access denied");
-        navigate("/loan-apply");
-        return;
+    const fetchLoan = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        
+        const response = await getLoanDetail(parseInt(id, 10));
+        const loanData = response.data;
+
+        if (!loanData) {
+          throw new Error("Loan not found");
+        }
+
+        // Verify borrower owns this loan
+        if (loanData.borrower_id !== parseInt(borrowerId, 10)) {
+          throw new Error("Access denied");
+        }
+
+        // Only show installment plan for active/completed loans
+        if (loanData.status !== "active" && loanData.status !== "completed") {
+          toast.info("Installment plan is only available for approved loans");
+          navigate(`/loan/${id}`);
+          return;
+        }
+
+        // Calculate installment plan
+        const principal = loanData.loan_amount || 0;
+        const interestRate = 0.042; // 4.2% total interest
+        const totalPayable = principal * (1 + interestRate);
+        const durationDays = loanData.loan_duration_days || 30;
+        const numInstallments = Math.ceil(durationDays / 30);
+        const installmentAmount = totalPayable / numInstallments;
+        const principalPerInstallment = principal / numInstallments;
+        const interestPerInstallment = (totalPayable - principal) / numInstallments;
+
+        // Generate installments
+        const installments = [];
+        const startDate = loanData.approved_at ? new Date(loanData.approved_at) : new Date();
+        
+        for (let i = 0; i < numInstallments; i++) {
+          const dueDate = new Date(startDate);
+          dueDate.setMonth(dueDate.getMonth() + i + 1);
+          
+          installments.push({
+            no: i + 1,
+            due_date: dueDate.toISOString().split('T')[0],
+            amount: Math.round(installmentAmount),
+            principal: Math.round(principalPerInstallment),
+            interest: Math.round(interestPerInstallment),
+            status: "Upcoming", // Will be updated from repayments table later
+          });
+        }
+
+        const mappedLoan = {
+          borrower_id: loanData.borrower_id,
+          principal: principal,
+          daily_rate: 0.7, // Approximate daily rate
+          duration: durationDays,
+          total_payable: Math.round(totalPayable),
+          installments: installments,
+        };
+
+        setLoan(mappedLoan);
+      } catch (error) {
+        console.error("Error fetching loan:", error);
+        setError(error.response?.data?.detail || error.message || "Failed to load installment plan");
+        toast.error(error.response?.data?.detail || "Failed to load installment plan");
+        
+        if (error.response?.status === 404 || error.message === "Access denied") {
+          setTimeout(() => navigate("/my-loans"), 2000);
+        }
+      } finally {
+        setIsLoading(false);
       }
+    };
 
-      setLoan(mockLoan);
-      setIsLoading(false);
-    }, 800);
-  }, [id, navigate]);
+    fetchLoan();
+  }, [id, navigate, isLoggedIn, borrowerId]);
 
   if (isLoading) {
     return (
@@ -87,6 +133,42 @@ export default function InstallmentPlanPage() {
           <p className="mt-4 text-muted-foreground">
             Loading installment plan...
           </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error && !isLoading) {
+    return (
+      <div className="min-h-screen bg-muted">
+        <Header />
+        <div className="container mx-auto px-4 py-16 text-center">
+          <div className="mx-auto max-w-md">
+            <h2 className="mb-4 text-2xl font-bold text-destructive">Error</h2>
+            <p className="mb-6 text-muted-foreground">{error}</p>
+            <Button onClick={() => navigate("/my-loans")}>
+              Back to My Loans
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!loan && !isLoading) {
+    return (
+      <div className="min-h-screen bg-muted">
+        <Header />
+        <div className="container mx-auto px-4 py-16 text-center">
+          <div className="mx-auto max-w-md">
+            <h2 className="mb-4 text-2xl font-bold">Loan Not Found</h2>
+            <p className="mb-6 text-muted-foreground">
+              The loan you're looking for doesn't exist or you don't have permission to view it.
+            </p>
+            <Button onClick={() => navigate("/my-loans")}>
+              Back to My Loans
+            </Button>
+          </div>
         </div>
       </div>
     );

@@ -41,7 +41,7 @@ Umeed AI provides instant *risk scores* and *recommended installment plans* usin
 
 ## 🎬 Demo Video
 
-[Watch Demo Video on Google Drive](https://drive.google.com/file/d/your-file-id/view?usp=sharing)
+[Watch Demo Video on Google Drive](https://drive.google.com/file/d/1qbV9qVLB3pscFWD_QqGsyV49MtsjGpEo/view?usp=sharing)
 
 ## 👨🏻‍💻 &nbsp;Tech Stack
 
@@ -74,4 +74,6 @@ Before running locally, ensure you have:
 
 ```bash
 git clone https://github.com/<your-username>/Umeed-AI.git
+
+
 

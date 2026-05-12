@@ -100,12 +100,37 @@ export default function AdminDashboardPage() {
     const fetchData = async () => {
       try {
         setLoading(true);
+        setError(null);
         
         // Fetch dashboard summary and loans
         const [dashboardRes, loansRes] = await Promise.all([
-          getAdminDashboard().catch(() => ({ data: null })),
-          getAllLoans().catch(() => ({ data: [] })),
+          getAdminDashboard(),
+          getAllLoans(),
         ]);
+
+        // Process loans data first (needed for calculations)
+        let processedLoans = [];
+        if (loansRes.data && Array.isArray(loansRes.data) && loansRes.data.length > 0) {
+          processedLoans = loansRes.data.map((loan) => ({
+            id: loan.id,
+            name: loan.borrower?.full_name || "Unknown Borrower",
+            cnic: loan.borrower?.cnic || "N/A",
+            loan_amount: loan.loan_amount || 0,
+            final_score: loan.final_score || loan.ai_score || 0,
+            risk_category: loan.risk_category || "Medium",
+            status: loan.status === "pending" ? "Pending" :
+                    loan.status === "active" ? "Approved" :
+                    loan.status === "completed" ? "Approved" : "Rejected",
+          }));
+          setBorrowers(processedLoans);
+        } else {
+          // Only use fallback if we have no data AND no error
+          if (loansRes.data && loansRes.data.length === 0) {
+            setBorrowers([]);
+          } else {
+            setBorrowers(fallbackBorrowers);
+          }
+        }
 
         // Process dashboard data
         if (dashboardRes.data) {
@@ -114,12 +139,23 @@ export default function AdminDashboardPage() {
           const riskData = dashboard.risk_distribution || {};
           
           setSummary({
-            total_applications: summaryData.total_loans || fallbackSummary.total_applications,
-            approved: summaryData.completed_loans || fallbackSummary.approved,
-            pending: summaryData.pending_loans || fallbackSummary.pending,
-            rejected: summaryData.rejected_loans || fallbackSummary.rejected,
-            avg_risk_score: summaryData.avg_risk_score || fallbackSummary.avg_risk_score,
+            total_applications: summaryData.total_loans || 0,
+            approved: summaryData.completed_loans || 0,
+            pending: summaryData.pending_loans || 0,
+            rejected: summaryData.rejected_loans || 0,
+            avg_risk_score: summaryData.avg_risk_score || 0,
           });
+
+          // Calculate average loan size from loans data if available
+          let averageLoanSize = 0;
+          if (processedLoans.length > 0) {
+            const totalLoanAmount = processedLoans.reduce((sum, loan) => sum + (loan.loan_amount || 0), 0);
+            averageLoanSize = Math.round(totalLoanAmount / processedLoans.length);
+          } else if (loansRes.data && loansRes.data.length > 0) {
+            // Calculate from raw loans data if processedLoans is empty
+            const totalLoanAmount = loansRes.data.reduce((sum, loan) => sum + (loan.loan_amount || 0), 0);
+            averageLoanSize = Math.round(totalLoanAmount / loansRes.data.length);
+          }
 
           // Set analytics with risk distribution
           setAnalytics({
@@ -132,38 +168,30 @@ export default function AdminDashboardPage() {
               total_clients: summaryData.total_clients || 0,
               total_loans: summaryData.total_loans || 0,
               active_loans: summaryData.active_loans || 0,
+              low_risk: riskData.low_risk || 0,
+              medium_risk: riskData.medium_risk || 0,
+              high_risk: riskData.high_risk || 0,
+              average_loan_size: averageLoanSize,
             },
           });
         } else {
+          // Only use fallback if we truly have no data
+          console.warn("No dashboard data received, using fallback");
           setSummary(fallbackSummary);
           setAnalytics(getAllAnalytics());
         }
 
-        // Process loans data
-        if (loansRes.data && loansRes.data.length > 0) {
-          setBorrowers(
-            loansRes.data.map((loan, index) => ({
-              id: loan.id || `APP-${String(index + 1).padStart(3, "0")}`,
-              name: loan.borrower?.full_name || "Borrower",
-              cnic: loan.borrower?.cnic || "N/A",
-              loan_amount: loan.loan_amount || 0,
-              final_score: loan.final_score || loan.ai_score || 0,
-              risk_category: loan.risk_category || "Medium",
-              status: loan.status === "pending" ? "Pending" :
-                      loan.status === "active" ? "Approved" :
-                      loan.status === "completed" ? "Approved" : "Rejected",
-            }))
-          );
-        } else {
-          setBorrowers(fallbackBorrowers);
-        }
-
-        setError(null);
       } catch (err) {
         console.error("Dashboard fetch error:", err);
+        const errorMessage = err.response?.data?.detail || err.message || "Unknown error";
         setError(
-          "Unable to load live dashboard data. Showing sample applications."
+          `Unable to load dashboard data: ${errorMessage}. Please check your connection and try again.`
         );
+        // Only use fallback on actual errors, not on empty data
+        if (err.response?.status === 401) {
+          // Unauthorized - redirect handled by interceptor
+          return;
+        }
         setSummary(fallbackSummary);
         setBorrowers(fallbackBorrowers);
         setAnalytics(getAllAnalytics());

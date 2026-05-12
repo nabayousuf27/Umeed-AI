@@ -10,36 +10,66 @@ export const ClientOverview = ({ overview }) => {
     return null;
   }
 
+  // Safely get values with defaults
+  const totalClients = overview.total_clients || 0;
+  const totalLoans = overview.total_loans || 0;
+  const activeLoans = overview.active_loans || 0;
+  
+  // Calculate risk percentages if we have risk distribution data
+  const lowRisk = overview.low_risk || 0;
+  const mediumRisk = overview.medium_risk || 0;
+  const highRisk = overview.high_risk || 0;
+  const totalRisk = lowRisk + mediumRisk + highRisk;
+  
+  const lowRiskPercentage = totalRisk > 0 ? Math.round((lowRisk / totalRisk) * 100) : 0;
+  const mediumRiskPercentage = totalRisk > 0 ? Math.round((mediumRisk / totalRisk) * 100) : 0;
+  const highRiskPercentage = totalRisk > 0 ? Math.round((highRisk / totalRisk) * 100) : 0;
+  
+  // Calculate average loan size safely
+  const averageLoanSize = overview.average_loan_size || (totalLoans > 0 ? 0 : 0);
+  const averageLoanSizeFormatted = averageLoanSize > 0 
+    ? `PKR ${averageLoanSize.toLocaleString()}` 
+    : "PKR 0";
+
   const stats = [
     {
       label: "Total Clients",
-      value: overview.total_clients,
+      value: totalClients.toLocaleString(),
       description: "Registered borrowers",
     },
     {
+      label: "Total Loans",
+      value: totalLoans.toLocaleString(),
+      description: `${activeLoans} active loans`,
+    },
+    {
       label: "Low Risk",
-      value: `${overview.low_risk_percentage}%`,
-      description: `${Math.round((overview.low_risk_percentage / 100) * overview.total_clients)} clients`,
+      value: `${lowRiskPercentage}%`,
+      description: `${lowRisk} clients`,
       badge: "bg-success text-success-foreground",
     },
     {
       label: "Medium Risk",
-      value: `${overview.medium_risk_percentage}%`,
-      description: `${Math.round((overview.medium_risk_percentage / 100) * overview.total_clients)} clients`,
+      value: `${mediumRiskPercentage}%`,
+      description: `${mediumRisk} clients`,
       badge: "bg-warning text-warning-foreground",
     },
     {
       label: "High Risk",
-      value: `${overview.high_risk_percentage}%`,
-      description: `${Math.round((overview.high_risk_percentage / 100) * overview.total_clients)} clients`,
+      value: `${highRiskPercentage}%`,
+      description: `${highRisk} clients`,
       badge: "bg-destructive text-destructive-foreground",
     },
-    {
-      label: "Average Loan Size",
-      value: `PKR ${overview.average_loan_size.toLocaleString()}`,
-      description: "Per loan disbursement",
-    },
   ];
+
+  // Only add average loan size if we have data
+  if (averageLoanSize > 0) {
+    stats.push({
+      label: "Average Loan Size",
+      value: averageLoanSizeFormatted,
+      description: "Per loan disbursement",
+    });
+  }
 
   return (
     <Card className="mb-8 rounded-2xl shadow-xl">

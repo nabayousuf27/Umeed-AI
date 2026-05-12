@@ -81,3 +81,6 @@ frontend/node_modules/
 
 # Build files
 frontend/build/
+
+train_mmodel.py
+.env
