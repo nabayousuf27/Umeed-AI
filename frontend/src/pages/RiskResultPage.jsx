@@ -245,10 +245,11 @@ export default function RiskResultPage() {
                   </div>
                   <Progress value={result.final_score || 0} className="h-3" />
                   <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>Low Risk (0-20)</span>
+                    <span>Low Risk (0-50)</span>
                     <span>Medium (50-80)</span>
                     <span>High Risk (80-100)</span>
                   </div>
+
                 </div>
 
                 <div className="rounded-lg border-l-4 border-primary bg-muted p-4">
