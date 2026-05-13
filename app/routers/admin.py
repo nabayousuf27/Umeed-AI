@@ -25,27 +25,14 @@ from app.core.dependencies import get_current_admin
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
-# JWT Configuration
-JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
-JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256") # HS256 is a standard default, but secret key MUST be set
+from app.core.config import (
+    JWT_SECRET_KEY,
+    JWT_ALGORITHM,
+    JWT_EXPIRATION_HOURS,
+    ADMIN_EMAIL,
+    ADMIN_PASSWORD
+)
 
-if not JWT_SECRET_KEY:
-    raise RuntimeError("JWT_SECRET_KEY environment variable must be set")
-
-JWT_EXPIRATION_HOURS = 24
-
-# Admin credentials configuration
-# CRITICAL SECURITY WARNING: Never hardcode sensitive credentials in the source code.
-# Hardcoded secrets are easily discovered in version control history and pose a severe security risk.
-ADMIN_EMAIL = os.getenv("ADMIN_EMAIL")
-ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD")
-
-if not ADMIN_EMAIL or not ADMIN_PASSWORD:
-    # Fail securely: prevent application from running with unconfigured administrative access
-    raise RuntimeError(
-        "CRITICAL ERROR: Admin credentials are not configured. "
-        "Please set ADMIN_EMAIL and ADMIN_PASSWORD environment variables."
-    )
 
 
 

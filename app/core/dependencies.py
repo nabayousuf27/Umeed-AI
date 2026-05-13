@@ -6,7 +6,8 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import Optional
 import jwt
 import os
-from app.core.config import supabase
+from app.core.config import supabase, JWT_SECRET_KEY, JWT_ALGORITHM
+
 
 security = HTTPBearer()
 
@@ -19,13 +20,10 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
     token = credentials.credentials
     
     try:
-        # Get JWT secret key
-        # CRITICAL SECURITY WARNING: Never hardcode sensitive credentials in the source code.
-        secret_key = os.getenv("JWT_SECRET_KEY")
-        algorithm = os.getenv("JWT_ALGORITHM", "HS256")
-        
-        if not secret_key:
-            raise RuntimeError("JWT_SECRET_KEY environment variable must be set")
+        # Use centralized JWT configuration
+        secret_key = JWT_SECRET_KEY
+        algorithm = JWT_ALGORITHM
+
 
 
         
@@ -90,14 +88,9 @@ def get_optional_user(
     
     try:
         token = credentials.credentials
-        secret_key = os.getenv("JWT_SECRET_KEY")
-        algorithm = os.getenv("JWT_ALGORITHM", "HS256")
-        
-        if not secret_key:
-            # For optional user, we can either raise or just return None if we want to fail silent
-            # but usually startup should fail if config is missing.
-            # However, this is called per request.
-            return None
+        secret_key = JWT_SECRET_KEY
+        algorithm = JWT_ALGORITHM
+
 
         
         payload = jwt.decode(token, secret_key, algorithms=[algorithm])
