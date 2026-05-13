@@ -20,8 +20,14 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
     
     try:
         # Get JWT secret key
-        secret_key = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-in-production")
+        # CRITICAL SECURITY WARNING: Never hardcode sensitive credentials in the source code.
+        secret_key = os.getenv("JWT_SECRET_KEY")
         algorithm = os.getenv("JWT_ALGORITHM", "HS256")
+        
+        if not secret_key:
+            raise RuntimeError("JWT_SECRET_KEY environment variable must be set")
+
+
         
         # Decode and verify JWT token
         payload = jwt.decode(token, secret_key, algorithms=[algorithm])
@@ -84,8 +90,15 @@ def get_optional_user(
     
     try:
         token = credentials.credentials
-        secret_key = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-in-production")
+        secret_key = os.getenv("JWT_SECRET_KEY")
         algorithm = os.getenv("JWT_ALGORITHM", "HS256")
+        
+        if not secret_key:
+            # For optional user, we can either raise or just return None if we want to fail silent
+            # but usually startup should fail if config is missing.
+            # However, this is called per request.
+            return None
+
         
         payload = jwt.decode(token, secret_key, algorithms=[algorithm])
         user_id = payload.get("sub") or payload.get("user_id")

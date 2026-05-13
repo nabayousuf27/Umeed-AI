@@ -21,8 +21,15 @@ from app.core.dependencies import get_current_borrower
 from app.services.risk_score import calculate_risk_score, get_risk_category
 
 # JWT Configuration
-JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-in-production")
+# CRITICAL SECURITY WARNING: Never hardcode sensitive credentials in the source code.
+# Hardcoded secrets are easily discovered in version control history and pose a severe security risk.
+JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+
+if not JWT_SECRET_KEY:
+    raise RuntimeError("JWT_SECRET_KEY environment variable must be set")
+
 JWT_EXPIRATION_HOURS = 24
 
 router = APIRouter(prefix="/borrower", tags=["Borrower"])
