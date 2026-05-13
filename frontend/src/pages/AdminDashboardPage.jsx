@@ -40,43 +40,8 @@ import { RiskDistributionChart } from "../components/admin/RiskDistributionChart
 import { ClientOverview } from "../components/admin/ClientOverview";
 import { getAdminDashboard, getAllLoans, getAllClients } from "../services/api";
 
-const fallbackSummary = {
-  total_applications: 156,
-  approved: 98,
-  pending: 32,
-  rejected: 26,
-  avg_risk_score: 235,
-};
 
-const fallbackBorrowers = [
-  {
-    id: "APP-001",
-    name: "Aisha Khan",
-    cnic: "42101-1234567-1",
-    loan_amount: 20000,
-    final_score: 240,
-    risk_category: "Low",
-    status: "Approved",
-  },
-  {
-    id: "APP-002",
-    name: "Hassan Ali",
-    cnic: "42101-7654321-9",
-    loan_amount: 15000,
-    final_score: 180,
-    risk_category: "Medium",
-    status: "Pending",
-  },
-  {
-    id: "APP-003",
-    name: "Fatima Ahmed",
-    cnic: "42101-9876543-2",
-    loan_amount: 25000,
-    final_score: 120,
-    risk_category: "High",
-    status: "Rejected",
-  },
-];
+
 
 export default function AdminDashboardPage() {
   const navigate = useNavigate();
@@ -84,8 +49,15 @@ export default function AdminDashboardPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [riskFilter, setRiskFilter] = useState("all");
-  const [summary, setSummary] = useState(fallbackSummary);
-  const [borrowers, setBorrowers] = useState(fallbackBorrowers);
+  const [summary, setSummary] = useState({
+    total_applications: 0,
+    approved: 0,
+    pending: 0,
+    rejected: 0,
+    avg_risk_score: 0,
+  });
+  const [borrowers, setBorrowers] = useState([]);
+
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -124,15 +96,11 @@ export default function AdminDashboardPage() {
           }));
           setBorrowers(processedLoans);
         } else {
-          // Only use fallback if we have no data AND no error
-          if (loansRes.data && loansRes.data.length === 0) {
-            setBorrowers([]);
-          } else {
-            setBorrowers(fallbackBorrowers);
-          }
+          setBorrowers([]);
         }
 
         // Process dashboard data
+
         if (dashboardRes.data) {
           const dashboard = dashboardRes.data;
           const summaryData = dashboard.summary || {};
@@ -175,11 +143,16 @@ export default function AdminDashboardPage() {
             },
           });
         } else {
-          // Only use fallback if we truly have no data
-          console.warn("No dashboard data received, using fallback");
-          setSummary(fallbackSummary);
-          setAnalytics(getAllAnalytics());
+          setSummary({
+            total_applications: 0,
+            approved: 0,
+            pending: 0,
+            rejected: 0,
+            avg_risk_score: 0,
+          });
+          setAnalytics(null);
         }
+
 
       } catch (err) {
         console.error("Dashboard fetch error:", err);
@@ -192,9 +165,16 @@ export default function AdminDashboardPage() {
           // Unauthorized - redirect handled by interceptor
           return;
         }
-        setSummary(fallbackSummary);
-        setBorrowers(fallbackBorrowers);
-        setAnalytics(getAllAnalytics());
+        setSummary({
+          total_applications: 0,
+          approved: 0,
+          pending: 0,
+          rejected: 0,
+          avg_risk_score: 0,
+        });
+        setBorrowers([]);
+        setAnalytics(null);
+
       } finally {
         setLoading(false);
       }
@@ -348,38 +328,49 @@ export default function AdminDashboardPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredBorrowers.map((borrower) => (
-                      <TableRow key={borrower.id}>
-                        <TableCell className="font-medium">
-                          {borrower.id}
-                        </TableCell>
-                        <TableCell>{borrower.name}</TableCell>
-                        <TableCell>{borrower.cnic}</TableCell>
-                        <TableCell className="font-semibold">
-                          PKR {borrower.loan_amount.toLocaleString()}
-                        </TableCell>
-                        <TableCell>{borrower.final_score}</TableCell>
-                        <TableCell>
-                          <Badge className={getRiskBadgeColor(borrower.risk_category)}>
-                            {borrower.risk_category}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge className={getStatusBadgeColor(borrower.status)}>
-                            {borrower.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => navigate(`/admin/loan/${borrower.id}`)}
-                          >
-                            View
-                          </Button>
+                    {filteredBorrowers.length > 0 ? (
+                      filteredBorrowers.map((borrower) => (
+                        <TableRow key={borrower.id}>
+                          <TableCell className="font-medium">
+                            {borrower.id}
+                          </TableCell>
+                          <TableCell>{borrower.name}</TableCell>
+                          <TableCell>{borrower.cnic}</TableCell>
+                          <TableCell className="font-semibold">
+                            PKR {borrower.loan_amount.toLocaleString()}
+                          </TableCell>
+                          <TableCell>{borrower.final_score}</TableCell>
+                          <TableCell>
+                            <Badge className={getRiskBadgeColor(borrower.risk_category)}>
+                              {borrower.risk_category}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Badge className={getStatusBadgeColor(borrower.status)}>
+                              {borrower.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => navigate(`/admin/loan/${borrower.id}`)}
+                            >
+                              View
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
+                          {searchTerm || statusFilter !== "all" || riskFilter !== "all" 
+                            ? "No applications match your search filters." 
+                            : "No loan applications found."}
                         </TableCell>
                       </TableRow>
-                    ))}
+                    )}
+
                   </TableBody>
                 </Table>
               )}
