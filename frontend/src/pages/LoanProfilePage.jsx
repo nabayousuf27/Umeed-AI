@@ -186,6 +186,29 @@ export default function LoanProfilePage() {
     toast.info("Loan is already marked for review");
   };
 
+  const getRiskBadgeColor = (risk) => {
+    switch (risk) {
+      case "Low":
+        return "bg-success text-success-foreground";
+      case "Medium":
+        return "bg-warning text-warning-foreground";
+      default:
+        return "bg-destructive text-destructive-foreground";
+    }
+  };
+
+  const getStatusBadgeColor = (status) => {
+    switch (status) {
+      case "Approved":
+        return "bg-success text-success-foreground";
+      case "Pending":
+        return "bg-warning text-warning-foreground";
+      default:
+        return "bg-destructive text-destructive-foreground";
+    }
+  };
+
+
   if (loading) {
     return (
       <div className="min-h-screen bg-muted">
@@ -321,12 +344,18 @@ export default function LoanProfilePage() {
                   <Stat label="Manual Score" value={application.scoring.manual_score} />
                   <div className="flex items-center justify-between">
                     <span className="text-sm">Risk:</span>
-                    <Badge className="bg-success">{application.scoring.risk_category}</Badge>
+                    <Badge className={getRiskBadgeColor(application.scoring.risk_category)}>
+                      {application.scoring.risk_category}
+                    </Badge>
                   </div>
+
                   <div className="flex items-center justify-between">
                     <span className="text-sm">Decision:</span>
-                    <Badge className="bg-success">{application.scoring.decision}</Badge>
+                    <Badge className={getStatusBadgeColor(application.scoring.decision)}>
+                      {application.scoring.decision}
+                    </Badge>
                   </div>
+
                 </div>
               </section>
 
@@ -338,12 +367,14 @@ export default function LoanProfilePage() {
                 </p>
                 <div className="space-y-3">
                   <div>
-                    <Label htmlFor="manual-score" className="text-xs">Manual Score (0-200)</Label>
+                    <Label htmlFor="manual-score" className="text-xs">Manual Score (0-100)</Label>
+
                     <Input
                       id="manual-score"
                       type="number"
                       min="0"
-                      max="200"
+                      max="100"
+
                       value={manualScore}
                       onChange={(e) => setManualScore(e.target.value)}
                       placeholder="Enter manual score"
